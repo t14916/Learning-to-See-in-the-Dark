@@ -97,8 +97,10 @@ def pack_raw(raw):
 
 
 sess = tf.Session()
-in_image = tf.placeholder(tf.float32, [None, None, None, 4])
-gt_image = tf.placeholder(tf.float32, [None, None, None, 3])
+#in_image = tf.placeholder(tf.float32, [None, None, None, 4])
+#gt_image = tf.placeholder(tf.float32, [None, None, None, 3])
+in_image = tf.placeholder(tf.float32, [1, 1424, 2128, 4])
+gt_image = tf.placeholder(tf.float32, [1, 2848, 4256, 3])
 out_image = network(in_image)
 
 saver = tf.train.Saver()
@@ -111,10 +113,12 @@ if ckpt:
 if not os.path.isdir(result_dir + 'final/'):
     os.makedirs(result_dir + 'final/')
 
+print(test_ids)
 for test_id in test_ids:
     # test the first image in each sequence
     in_files = glob.glob(input_dir + '%05d_00*.ARW' % test_id)
     for k in range(len(in_files)):
+        #Begin input pre process
         in_path = in_files[k]
         in_fn = os.path.basename(in_path)
         print(in_fn)
@@ -136,9 +140,11 @@ for test_id in test_ids:
         im = gt_raw.postprocess(use_camera_wb=True, half_size=False, no_auto_bright=True, output_bps=16)
         gt_full = np.expand_dims(np.float32(im / 65535.0), axis=0)
 
+        #print(gt_full.shape)
         input_full = np.minimum(input_full, 1.0)
+        #End input pre process
 
-        output = sess.run(out_image, feed_dict={in_image: input_full})
+        output = sess.run(out_image, feed_dict={in_image: input_full}) # This is where the model is run
         output = np.minimum(np.maximum(output, 0), 1)
 
         output = output[0, :, :, :]
@@ -153,3 +159,4 @@ for test_id in test_ids:
             result_dir + 'final/%5d_00_%d_scale.png' % (test_id, ratio))
         scipy.misc.toimage(gt_full * 255, high=255, low=0, cmin=0, cmax=255).save(
             result_dir + 'final/%5d_00_%d_gt.png' % (test_id, ratio))
+    #break

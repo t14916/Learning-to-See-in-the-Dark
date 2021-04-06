@@ -2,6 +2,9 @@ from __future__ import division
 import os, scipy.io
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
+import matplotlib
+matplotlib.use('agg')
+import matplotlib.pyplot as plt
 import numpy as np
 import rawpy
 import glob
@@ -9,11 +12,12 @@ import glob
 #625
 
 
-dtype = "int8"
+dtype = "float16"
 input_dir = './dataset/Sony/preprocessed_shorts/'
 checkpoint_in_dir = './checkpoint/Sony/'
 checkpoint_out_dir = './checkpiont/QSony/'
 tflite_filepath = './checkpoint/SonyTFLite/sony_{}.tflite'.format(dtype)
+plot_dir = './plots/'
 def lrelu(x):
     return tf.maximum(x * 0.2, x)
 
@@ -68,23 +72,18 @@ def network(input):
     return out
 
 
-def representative_dataset():
-    all_files = os.listdir(input_dir)
-    print(len(all_files))
-    for i in range(int(len(all_files)/2)):
-        arr = np.load("{}/{}".format(input_dir, all_files[i]))
-        yield [arr.astype(np.float32)]
+def replace_slash_with_dash(string):
+    return string.replace("/", "-")
 
 
-def load_first_input():
-    all_files = os.listdir(input_dir)
-    print(all_files[0])
-    return np.load("{}/{}".format(input_dir, all_files[0]))
-
-def load_input(filename):
-    print(filename)
-    return np.load("{}/{}".format(input_dir, filename))
-
+def plot_and_save_variable(var, save_dir):
+    var_name = replace_slash_with_dash(var.name)
+    plt.title("{} plot".format(var_name))
+    plt.xlabel("values")
+    plt.ylabel("count")
+    plt.hist(var.eval(sess).flatten())
+    plt.savefig("{}/{}".format(save_dir, var_name))
+    plt.clf()
 
 sess = tf.Session()
 in_image = tf.placeholder(tf.float32, [1, 1424, 2128, 4])
@@ -99,58 +98,31 @@ if ckpt:
     print('loaded ' + ckpt.model_checkpoint_path)
     saver.restore(sess, ckpt.model_checkpoint_path)
 
-#output_data = sess.run(out_image, feed_dict={in_image: load_first_input()})
-#print(representative_dataset())
+all_variables = tf.compat.v1.trainable_variables()
+print(all_variables)
+print(len(all_variables))
+
+weights = []
+biases = []
+other = []
+for var in all_variables:
+    if "weights" in var.name:
+        weights.append(var)
+    elif "biases" in var.name:
+        biases.append(var)
+    else:
+        other.append(var)
+
+print(other)
+print(len(weights))
+print(len(biases))
 
 
-converter = tf.compat.v1.lite.TFLiteConverter.from_session(sess, [in_image], [out_image])
-converter.optimizations = [tf.lite.Optimize.DEFAULT]
-converter.target_spec.supported_types = [tf.int8]
-converter.target_spec.supported_ops = [tf.lite.OpsSet.TFLITE_BUILTINS_INT8]
-converter.inference_input_type = tf.int8
-converter.inference_output_type = tf.int8
-converter.representative_dataset = representative_dataset
-tflite_quant_model = converter.convert()
+for weight in weights:
+    plot_and_save_variable(weight, "{}weights".format(plot_dir))
 
-with open("v2_{}".format(tflite_filepath), 'wb') as f:
-    f.write(tflite_quant_model)
+for bias in biases:
+    plot_and_save_variable(bias, "{}biases".format(plot_dir))
 
 
-#converter = tf.compat.v1.lite.TFLiteConverter.from_session(sess, [in_image], [out_image])
-#tflite_quant_model = converter.convert()
 
-interpreter = tf.lite.Interpreter(tflite_filepath)
-interpreter.allocate_tensors()
-
-input_details = interpreter.get_input_details()
-output_details = interpreter.get_output_details()
-
-#https://www.tensorflow.org/lite/guide/inference
-print("Getting input")
-input_shape = input_details[0]['shape']
-input_data = load_first_input()
-#input_data = load_input("10187_00_300_pinput.npy")
-print("Setting input")
-print(input_details[0]['index'])
-interpreter.set_tensor(input_details[0]['index'], input_data)
-
-print("Beginning Run")
-interpreter.invoke()
-print("End Run")
-
-print("Begin Post Processing")
-output_data = interpreter.get_tensor(output_details[0]['index'])
-
-
-np.save("test_output_rawdata_nopost_{}".format(dtype), output_data[0, :, : , :])
-output_data = np.minimum(np.maximum(output_data, 0), 1) # Fits values between 0 and 1
-#if "float" not in dtype or "bfloat" in dtype:
-#    output_data = output_data / (1/np.max) # map to the maximum
-
-output = output_data[0, :, :, :]
-np.save("test_output_rawdata_withpost_{}".format(dtype), output_data[0, :, : , :])
-
-#print(max(output))
-
-scipy.misc.toimage(output * 255, high=255, low=0, cmin=0, cmax=255).save("test_output_{}.png".format(dtype))
-print("Done")
