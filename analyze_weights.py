@@ -1,7 +1,9 @@
 from __future__ import division
 import os, scipy.io
-import tensorflow as tf
-import tensorflow.contrib.slim as slim
+from test_Sony import toimage
+import tensorflow.compat.v1 as tf
+import tf_slim as slim
+tf.disable_v2_behavior()
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt

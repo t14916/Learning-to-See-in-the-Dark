@@ -1,5 +1,6 @@
 from __future__ import division
 import os, scipy.io
+from test_Sony import toimage
 import matplotlib
 matplotlib.use('agg')
 import matplotlib.pyplot as plt
@@ -45,4 +46,4 @@ for c in colors:
     print(index)
 
 output_data = np.minimum(np.maximum(arr2, 0), 1)
-scipy.misc.toimage(output_data * 255, high=255, low=0, cmin=0, cmax=255).save("readjusted_output_{}.png".format(dtype))
+toimage(output_data * 255, high=255, low=0, cmin=0, cmax=255).save("readjusted_output_{}.png".format(dtype))

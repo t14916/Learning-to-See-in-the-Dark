@@ -1,7 +1,5 @@
 from __future__ import division
 import os, scipy.io
-import tensorflow as tf
-import tensorflow.contrib.slim as slim
 import numpy as np
 import rawpy
 import glob
@@ -9,6 +7,9 @@ import glob
 
 input_dir = './dataset/Sony/short/'
 output_dir = './dataset/Sony/preprocessed_shorts'
+output_dir_cfile = './dataset/Sony/preprocessed_shorts_cfile'
+output_dir_padded = './dataset/Sony/preprocessed_shorts_padded'
+output_dir_trunc = './dataset/Sony/preprocessed_shorts_trunc'
 gt_dir = './dataset/Sony/long/'
 
 test_fns = glob.glob(gt_dir + '/1*.ARW')
@@ -59,5 +60,15 @@ for test_id in test_ids:
 
         input_full = np.minimum(input_full, 1.0)
         #End input pre process
-        np.save("{}/{}_00_{}_pinput".format(output_dir, test_id, ratio), input_full)
-        print(type(input_full))
+        #print(type(input_full[0][0][0][0]))
+        #input_full.tofile("{}/{}_00_{}_pinput.data".format(output_dir_cfile, test_id, ratio))
+        height = input_full.shape[1]
+        width = input_full.shape[2]
+        pad_dims = abs(height-width) // 2
+        #input_full = np.pad(input_full, ((0,0), (pad_dims,pad_dims), (0,0), (0,0)), "mean")
+        input_full = input_full[:, :, pad_dims:height+pad_dims, :]#SHORTENED THIRD DIMENSION!!
+        print(input_full.shape)
+        #print(input_full.shape)
+        #input_full.tofile("{}/{}_00_{}_pinput.data".format(output_dir_padded, test_id, ratio))
+        input_full.tofile("{}/{}_00_{}_pinput.data".format(output_dir_trunc, test_id, ratio))
+        #np.tofile("{}/{}_00_{}_pinput".format(output_dir, test_id, ratio), input_full)
